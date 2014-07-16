@@ -19,17 +19,23 @@ package mpicbg.trakem2.align;
 
 import ij.IJ;
 import ij.gui.GenericDialog;
+import ij.gui.DialogListener;
 import ini.trakem2.Project;
+import ini.trakem2.display.Display;
 import ini.trakem2.display.Layer;
 import ini.trakem2.display.LayerSet;
 import ini.trakem2.display.Patch;
 import ini.trakem2.display.VectorData;
+import ini.trakem2.display.Overlay;
 import ini.trakem2.parallel.ExecutorProvider;
 import ini.trakem2.utils.AreaUtils;
 import ini.trakem2.utils.Filter;
 import ini.trakem2.utils.Utils;
 
+import java.awt.Color;
 import java.awt.Rectangle;
+import java.awt.Shape;
+import java.awt.Stroke;
 import java.awt.geom.Area;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -68,6 +74,7 @@ import mpicbg.trakem2.util.Triple;
  */
 public class ElasticLayerAlignment
 {
+	
 	final static public class Param extends mpicbg.trakem2.align.AbstractLayerAlignmentParam implements Serializable
 	{
 		private static final long serialVersionUID = 3366971916160734613L;
@@ -95,6 +102,67 @@ public class ElasticLayerAlignment
 		public int maxPlateauwidthSpringMesh = 200;
 		public boolean useLegacyOptimizer = true;
 		
+		public Rectangle thebox;
+		
+		public class blockMatchingListener implements DialogListener
+		{
+			public boolean dialogItemChanged(GenericDialog gdBlockMatching, java.awt.AWTEvent e){
+				
+				IJ.log("changed");
+				
+				updateParameters(gdBlockMatching);
+				
+				
+				return true;
+				
+			}
+			
+			public void updateParameters(GenericDialog gdBlockMatching){
+				
+				layerScale = ( float )gdBlockMatching.getNextNumber();
+				searchRadius = ( int )gdBlockMatching.getNextNumber();
+				blockRadius = ( int )gdBlockMatching.getNextNumber();
+				resolutionSpringMesh = ( int )gdBlockMatching.getNextNumber();
+				minR = ( float )gdBlockMatching.getNextNumber();
+				maxCurvatureR = ( float )gdBlockMatching.getNextNumber();
+				rodR = ( float )gdBlockMatching.getNextNumber();
+				useLocalSmoothnessFilter = gdBlockMatching.getNextBoolean();
+				localModelIndex = gdBlockMatching.getNextChoiceIndex();
+				localRegionSigma = ( float )gdBlockMatching.getNextNumber();
+				maxLocalEpsilon = ( float )gdBlockMatching.getNextNumber();
+				maxLocalTrust = ( float )gdBlockMatching.getNextNumber();
+				isAligned = gdBlockMatching.getNextBoolean();
+				maxNumNeighbors = ( int )gdBlockMatching.getNextNumber();
+				
+			}
+			
+			public void updateDisplay(){
+				Display display=Display.getFront();
+				Layer layer  = display.getLayer();
+				
+				Overlay newOverlay = new Overlay();
+				final int meshWidth = ( int )Math.ceil( thebox.width  );
+				final int meshHeight = ( int )Math.ceil( thebox.height );
+				SpringMesh sm = new SpringMesh(
+						resolutionSpringMesh,
+						meshWidth,
+						meshHeight,
+						stiffnessSpringMesh,
+						maxStretchSpringMesh * layerScale,
+						dampSpringMesh );
+				Shape mesh = sm.illustrateMesh();
+				Color green = new Color(0,255,0);
+				
+				newOverlay.add(mesh, green, null);
+				layer.setOverlay(newOverlay);
+				display.update();
+				
+			
+			}
+			
+			
+		}
+		
 		public boolean setup( final Rectangle box )
 		{
 			/* Block Matching */
@@ -103,7 +171,11 @@ public class ElasticLayerAlignment
 				blockRadius = box.width / resolutionSpringMesh / 2;
 			}
 			final GenericDialog gdBlockMatching = new GenericDialog( "Elastically align layers: Block Matching parameters" );
+			thebox = box;
 			
+			blockMatchingListener bml = new blockMatchingListener();
+			
+			gdBlockMatching.addDialogListener(bml);
 			gdBlockMatching.addMessage( "Block Matching:" );
 			/* TODO suggest isotropic resolution for this parameter */
 			gdBlockMatching.addNumericField( "layer_scale :", layerScale, 2 );

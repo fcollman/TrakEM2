@@ -140,6 +140,8 @@ public class ElasticLayerAlignment
 				Display display=Display.getFront();
 				Layer layer  = display.getLayer();
 				
+				
+				
 				Overlay newOverlay = new Overlay();
 				final int meshWidth = ( int )Math.ceil( thebox.width  );
 				final int meshHeight = ( int )Math.ceil( thebox.height );
